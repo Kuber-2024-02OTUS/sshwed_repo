@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: intro-pod
+  namespace: homework
+  labels:
+    app: intro
+spec:
+  containers:
+  - name: main-container
+    image: busybox:stable
+    command: ["sh", "-c", "httpd -f -p 8000"]
+    workingDir: /homework
+    ports:
+      - containerPort: 8000
+    volumeMounts:
+    - name: homework-volume
+      mountPath: /homework
+    lifecycle:
+      preStop:
+        exec:
+          command: ["/bin/sh", "-c", "rm -fv /homework/index.html"]
+  initContainers:
+  - name: init-container
+    image: busybox:stable
+    volumeMounts:
+    - name: homework-volume
+      mountPath: /init
+    command: ["/bin/sh", "-c"]
+    args:
+      - echo "<html><body>kubernetes-intro</body></html>" > /init/index.html
+  volumes:
+  - name: homework-volume
+    emptyDir: {}
