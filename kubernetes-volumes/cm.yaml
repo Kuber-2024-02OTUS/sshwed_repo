@@ -1,0 +1,13 @@
+# https://kubernetes.io/docs/concepts/configuration/configmap/
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: httpd-content
+  namespace: homework
+data:
+  user: user1
+  pass: pass1
+  config: |
+    user: user1
+    pass: pass1
+
