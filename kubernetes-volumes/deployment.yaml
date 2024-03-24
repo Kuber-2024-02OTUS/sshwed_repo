@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpd-deployment
+  namespace: homework
+  labels:
+    app: httpd
+spec:
+  replicas: 3
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: httpd
+  template:
+    metadata:
+      labels:
+        app: httpd
+    spec:
+      nodeSelector:
+        homework: "true"
+      containers:
+      - name: main-container
+        image: busybox:stable
+        command: ["sh", "-c", "httpd -f -p 8000"]
+        workingDir: /homework
+        ports:
+        - name: httpd-port
+          containerPort: 8000
+        volumeMounts:
+        - name: homework-volume
+          mountPath: /homework
+        - name: config-volume
+          mountPath: /homework/conf
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "rm -fv /homework/index.html"]
+        readinessProbe:
+          httpGet:
+            path: /index.html
+            port: 8000
+      initContainers:
+      - name: init-container
+        image: busybox:stable
+        volumeMounts:
+        - name: homework-volume
+          mountPath: /init
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            echo "<html><body>kubernetes-volumes: $HOSTNAME</body></html>" > /init/index.html
+            mkdir /init/homepage
+            echo "<html><body>homepage: kubernetes-volumes: $HOSTNAME </body></html>" > /init/homepage/index.html
+      volumes:
+      - name: homework-volume
+        persistentVolumeClaim:
+          claimName: httpd-pvc
+      - name: config-volume
+        configMap:
+          name: httpd-content
+          items:
+            - key: config
+              path: file
