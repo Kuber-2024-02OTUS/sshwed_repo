@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpd-deployment
+  namespace: homework
+  labels:
+    app: httpd
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: httpd
+  template:
+    metadata:
+      labels:
+        app: httpd
+    spec:
+      serviceAccountName: monitoring
+      nodeSelector:
+        homework: "true"
+      containers:
+      - name: main-container
+        image: busybox:stable
+        command: ["sh", "-c", "httpd -f -p 8000"]
+        workingDir: /homework
+        ports:
+        - name: httpd-port
+          containerPort: 8000
+        volumeMounts:
+        - name: homework-volume
+          mountPath: /homework
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "rm -fv /homework/metrics.html"]
+        readinessProbe:
+          httpGet:
+            path: /metrics.html
+            port: 8000
+      initContainers:
+      - name: init-container
+        image: busybox:stable
+        volumeMounts:
+        - name: homework-volume
+          mountPath: /init
+        command:
+          - /bin/sh
+          - -c
+          - |
+            TOKEN="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+            wget --no-check-certificate --header "Authorization: Bearer ${TOKEN}" -O /init/metrics.html https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS}/metrics
+      volumes:
+      - name: homework-volume
+        persistentVolumeClaim:
+          claimName: httpd-pvc
